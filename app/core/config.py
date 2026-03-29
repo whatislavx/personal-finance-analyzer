@@ -8,6 +8,14 @@ class Settings(BaseSettings):
     DB_NAME: str
     DB_PORT: int
 
+    # RabbitMQ
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost/"
+    RABBITMQ_EXCHANGE: str = "jobs"
+
+    # JWT
+    JWT_SECRET_KEY: str = "change-me-to-a-secure-random-value"
+    JWT_ALGORITHM: str = "HS256"
+
     class Config:
         env_file = ".env"
 
