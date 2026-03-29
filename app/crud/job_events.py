@@ -8,10 +8,18 @@ async def get_event(db: AsyncSession, event_id) -> Optional[JobEvent]:
     return await db.get(JobEvent, event_id)
 
 
-async def list_events_for_user(db: AsyncSession, user_id, skip: int = 0, limit: int = 100) -> List[JobEvent]:
-    # join with jobs to filter by job.owner/user_id
+async def list_events_for_user(
+    db: AsyncSession, user_id, skip: int = 0, limit: int = 100
+) -> List[JobEvent]:
     from app.db.models.jobs import Job
-    q = select(JobEvent).join(Job).where(Job.user_id == user_id).offset(skip).limit(limit)
+
+    q = (
+        select(JobEvent)
+        .join(Job)
+        .where(Job.user_id == user_id)
+        .offset(skip)
+        .limit(limit)
+    )
     resp = await db.execute(q)
     return list(resp.scalars().all())
 
@@ -24,7 +32,9 @@ async def create_event(db: AsyncSession, data: dict) -> JobEvent:
     return event
 
 
-async def update_event(db: AsyncSession, event: JobEvent, update_data: dict) -> JobEvent:
+async def update_event(
+    db: AsyncSession, event: JobEvent, update_data: dict
+) -> JobEvent:
     for k, v in update_data.items():
         setattr(event, k, v)
     db.add(event)

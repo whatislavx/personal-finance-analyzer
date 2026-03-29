@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 # Try to import aio_pika; if unavailable, provide a noop function
 try:
     import aio_pika
+
     AIO_PIKA_AVAILABLE = True
 except Exception:
     AIO_PIKA_AVAILABLE = False
@@ -20,6 +21,7 @@ async def send_job_message(message: dict):
         return
 
     from app.core.config import settings
+
     rabbit_url = getattr(settings, "RABBITMQ_URL", None)
     if not rabbit_url:
         logger.info("RABBITMQ_URL not configured; message: %s", message)
@@ -29,7 +31,11 @@ async def send_job_message(message: dict):
         connection = await aio_pika.connect_robust(rabbit_url)
         async with connection:
             channel = await connection.channel()
-            exchange = await channel.declare_exchange("jobs", aio_pika.ExchangeType.FANOUT)
-            await exchange.publish(aio_pika.Message(body=json.dumps(message).encode()), routing_key="")
+            exchange = await channel.declare_exchange(
+                "jobs", aio_pika.ExchangeType.FANOUT
+            )
+            await exchange.publish(
+                aio_pika.Message(body=json.dumps(message).encode()), routing_key=""
+            )
     except Exception:
         logger.exception("Failed to publish RabbitMQ message")

@@ -14,7 +14,11 @@ router = APIRouter(prefix="/job-events", tags=["job_events"])
 
 
 @router.post("/", response_model=JobEventRead, status_code=status.HTTP_201_CREATED)
-async def create_event(event_in: JobEventCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def create_event(
+    event_in: JobEventCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     # Ensure the job belongs to the current user
     job = await db.get(Job, event_in.job_id)
     if not job or job.user_id != current_user.id:
@@ -27,16 +31,31 @@ async def create_event(event_in: JobEventCreate, db: AsyncSession = Depends(get_
 
 
 @router.get("/", response_model=List[JobEventRead])
-async def list_events(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def list_events(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     # Return events belonging to jobs of the current user
-    q = select(JobEvent).join(Job).where(Job.user_id == current_user.id).offset(skip).limit(limit)
+    q = (
+        select(JobEvent)
+        .join(Job)
+        .where(Job.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+    )
     result = await db.execute(q)
     items = result.scalars().all()
     return items
 
 
 @router.get("/{event_id}", response_model=JobEventRead)
-async def get_event(event_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def get_event(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     event = await db.get(JobEvent, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -47,7 +66,12 @@ async def get_event(event_id: uuid.UUID, db: AsyncSession = Depends(get_db), cur
 
 
 @router.put("/{event_id}", response_model=JobEventRead)
-async def update_event(event_id: uuid.UUID, event_in: JobEventUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def update_event(
+    event_id: uuid.UUID,
+    event_in: JobEventUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     event = await db.get(JobEvent, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -64,7 +88,11 @@ async def update_event(event_id: uuid.UUID, event_in: JobEventUpdate, db: AsyncS
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_event(event_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def delete_event(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     event = await db.get(JobEvent, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")

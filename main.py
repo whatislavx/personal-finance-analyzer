@@ -14,6 +14,7 @@ app.add_middleware(
 
 # Import and include routers from the app.api package
 from app.api import (
+    auth_router,
     users_router,
     jobs_router,
     job_events_router,
@@ -21,6 +22,7 @@ from app.api import (
     financial_data_router,
 )
 
+app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(jobs_router)
 app.include_router(job_events_router)

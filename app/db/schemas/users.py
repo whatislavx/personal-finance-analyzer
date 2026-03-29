@@ -10,12 +10,13 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
 
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
 
 
 class UserRead(UserBase):
@@ -24,4 +25,3 @@ class UserRead(UserBase):
     id: uuid.UUID
     created_at: datetime.datetime
     updated_at: datetime.datetime
-

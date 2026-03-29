@@ -8,4 +8,3 @@ __all__ = [
     "job_results",
     "financial_data",
 ]
-

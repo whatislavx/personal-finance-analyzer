@@ -7,13 +7,18 @@ from sqlalchemy import select
 from app.db.deps import get_db
 from app.db.models.users import User
 from app.db.schemas.users import UserCreate, UserRead, UserUpdate
+from app.core.security import get_password_hash
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def create_user(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    user = User(username=user_in.username, email=user_in.email)
+    user = User(
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=get_password_hash(user_in.password),
+    )
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -21,7 +26,9 @@ async def create_user(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/", response_model=List[UserRead])
-async def list_users(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def list_users(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
+):
     result = await db.execute(select(User).offset(skip).limit(limit))
     users = result.scalars().all()
     return users
@@ -36,7 +43,9 @@ async def get_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserRead)
-async def update_user(user_id: uuid.UUID, user_in: UserUpdate, db: AsyncSession = Depends(get_db)):
+async def update_user(
+    user_id: uuid.UUID, user_in: UserUpdate, db: AsyncSession = Depends(get_db)
+):
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -44,6 +53,8 @@ async def update_user(user_id: uuid.UUID, user_in: UserUpdate, db: AsyncSession 
         user.username = user_in.username
     if user_in.email is not None:
         user.email = user_in.email
+    if user_in.password is not None:
+        user.hashed_password = get_password_hash(user_in.password)
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -58,4 +69,3 @@ async def delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     await db.delete(user)
     await db.commit()
     return None
-

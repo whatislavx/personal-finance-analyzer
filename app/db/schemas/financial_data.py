@@ -14,7 +14,6 @@ class FinancialDataBase(BaseModel):
 
 
 class FinancialDataCreate(FinancialDataBase):
-    user_id: uuid.UUID
     job_id: Optional[uuid.UUID] = None
 
 
@@ -33,4 +32,3 @@ class FinancialDataRead(FinancialDataBase):
     user_id: uuid.UUID
     job_id: Optional[uuid.UUID] = None
     created_at: datetime.datetime
-

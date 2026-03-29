@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import String, DateTime, Text, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -21,8 +22,8 @@ class JobEvent(Base):
 
     type: Mapped[str] = mapped_column(String(20), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(
-        server_default=text("CURRENT_TIMESTAMP")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=text("CURRENT_TIMESTAMP")
     )
 
     job: Mapped["Job"] = relationship("Job", back_populates="events")

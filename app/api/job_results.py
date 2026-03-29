@@ -14,7 +14,11 @@ router = APIRouter(prefix="/job-results", tags=["job_results"])
 
 
 @router.post("/", response_model=JobResultRead, status_code=status.HTTP_201_CREATED)
-async def create_result(result_in: JobResultCreate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def create_result(
+    result_in: JobResultCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     job = await db.get(Job, result_in.job_id)
     if not job or job.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -26,15 +30,30 @@ async def create_result(result_in: JobResultCreate, db: AsyncSession = Depends(g
 
 
 @router.get("/", response_model=List[JobResultRead])
-async def list_results(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    q = select(JobResult).join(Job).where(Job.user_id == current_user.id).offset(skip).limit(limit)
+async def list_results(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    q = (
+        select(JobResult)
+        .join(Job)
+        .where(Job.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+    )
     resp = await db.execute(q)
     items = resp.scalars().all()
     return items
 
 
 @router.get("/{result_id}", response_model=JobResultRead)
-async def get_result(result_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def get_result(
+    result_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     item = await db.get(JobResult, result_id)
     if not item:
         raise HTTPException(status_code=404, detail="Result not found")
@@ -45,7 +64,12 @@ async def get_result(result_id: uuid.UUID, db: AsyncSession = Depends(get_db), c
 
 
 @router.put("/{result_id}", response_model=JobResultRead)
-async def update_result(result_id: uuid.UUID, result_in: JobResultUpdate, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def update_result(
+    result_id: uuid.UUID,
+    result_in: JobResultUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     item = await db.get(JobResult, result_id)
     if not item:
         raise HTTPException(status_code=404, detail="Result not found")
@@ -62,7 +86,11 @@ async def update_result(result_id: uuid.UUID, result_in: JobResultUpdate, db: As
 
 
 @router.delete("/{result_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_result(result_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def delete_result(
+    result_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     item = await db.get(JobResult, result_id)
     if not item:
         raise HTTPException(status_code=404, detail="Result not found")

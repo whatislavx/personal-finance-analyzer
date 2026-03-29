@@ -1,5 +1,7 @@
-from .auth import get_current_user, create_access_token, oauth2_scheme
-from .rabbit import send_job_message
+"""Core utilities.
 
-__all__ = ["get_current_user", "create_access_token", "oauth2_scheme", "send_job_message"]
+Note: Keep this package's __init__ lightweight to avoid importing DB/JWT dependencies
+as a side-effect of importing app.core.
+"""
 
+__all__ = []

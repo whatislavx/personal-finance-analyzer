@@ -13,7 +13,7 @@ class JobBase(BaseModel):
 
 
 class JobCreate(JobBase):
-    user_id: uuid.UUID
+    pass
 
 
 class JobUpdate(BaseModel):
@@ -35,4 +35,3 @@ class JobRead(JobBase):
     updated_at: datetime.datetime
     started_at: Optional[datetime.datetime] = None
     completed_at: Optional[datetime.datetime] = None
-

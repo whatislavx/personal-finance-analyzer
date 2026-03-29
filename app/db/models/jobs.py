@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import DateTime, Integer, String, Text, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -33,17 +34,17 @@ class Job(Base):
     priority: Mapped[int] = mapped_column(Integer, server_default="0")
     result_url: Mapped[str] = mapped_column(String(512), nullable=True)
 
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
         onupdate=text("CURRENT_TIMESTAMP"),
     )
-    started_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     owner: Mapped["User"] = relationship("User", back_populates="jobs")
     events: Mapped[list["JobEvent"]] = relationship(

@@ -24,4 +24,3 @@ class JobResultRead(JobResultBase):
     id: uuid.UUID
     job_id: uuid.UUID
     created_at: datetime.datetime
-
