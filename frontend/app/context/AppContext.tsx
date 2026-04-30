@@ -60,9 +60,11 @@ interface AppContextType {
 
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  deleteTransaction: (transactionId: string) => Promise<void>;
 
   analyses: AnalysisItem[];
   createAnalysis: () => Promise<string>;
+  deleteAnalysis: (analysisId: string) => Promise<void>;
 
   analysisEvents: AnalysisEvent[];
   results: AnalysisResult[];
@@ -83,7 +85,6 @@ function readStoredUser(): { email: string; username: string } | null {
     }
     return null;
   } catch {
-    // Corrupted/stale localStorage value should not crash app boot.
     localStorage.removeItem(USER_STORAGE_KEY);
     return null;
   }
@@ -201,7 +202,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const username = usernameOrEmail.includes('@') ? usernameOrEmail.split('@')[0] : usernameOrEmail;
     const token = await api.login(username, password);
     tokenStorage.setToken(token.access_token);
-    // We don't have /users/me, so keep a lightweight local user object for UI.
     persistUser({ email: usernameOrEmail.includes('@') ? usernameOrEmail : `${username}@local`, username });
     await refreshAll();
   };
@@ -222,7 +222,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAnalyses(jb.map(analysisToUI));
     setResults(jr.map(resultToUI));
 
-    // Map events to UI log
     setAnalysisEvents(
       je
         .slice()
@@ -237,7 +236,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  // Initial load on refresh
   useEffect(() => {
     (async () => {
       try {
@@ -248,17 +246,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // REST fallback polling for jobs/events/results
   useEffect(() => {
     if (!isAuthenticated) return;
     const id = window.setInterval(() => {
       refreshAll().catch(() => void 0);
     }, 5000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
@@ -273,10 +268,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await api.createFinancialData(payload);
       await refreshAll();
     } catch (e) {
-      // keep UI responsive; surface error in console for now
       console.error('Failed to add transaction', e);
       throw e;
     }
+  };
+
+  const deleteTransaction = async (transactionId: string) => {
+    await api.deleteFinancialData(transactionId);
+    await refreshAll();
   };
 
   const createAnalysis = async (): Promise<string> => {
@@ -288,7 +287,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       description: 'Expense analysis',
     });
 
-    // Set active analysis for WS subscription
     activeAnalysisIdRef.current = created.id;
     wsRef.current?.close();
     wsRef.current = null;
@@ -307,10 +305,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               message: e.message ?? e.type,
               timestamp: e.created_at,
             }));
-            // newest first
             return [...mapped.reverse(), ...prev].slice(0, 200);
           });
-          // Refresh analysis status/results on events
           refreshAll().catch(() => void 0);
         },
       });
@@ -318,6 +314,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     await refreshAll();
     return created.id;
+  };
+
+  const deleteAnalysis = async (analysisId: string): Promise<void> => {
+    if (activeAnalysisIdRef.current === analysisId) {
+      wsRef.current?.close();
+      wsRef.current = null;
+      activeAnalysisIdRef.current = null;
+    }
+    await api.deleteJob(analysisId);
+    await refreshAll();
   };
 
   const getResultByAnalysisId = (analysisId: string) => results.find((r: AnalysisResult) => r.analysisId === analysisId);
@@ -331,8 +337,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout,
     transactions,
     addTransaction,
+    deleteTransaction,
     analyses,
     createAnalysis,
+    deleteAnalysis,
     analysisEvents,
     results,
     getResultByAnalysisId,

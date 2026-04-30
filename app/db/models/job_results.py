@@ -25,7 +25,8 @@ class JobResult(Base):
     )
 
     result_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    result_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    result_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=True)
+    s3_key: Mapped[str] = mapped_column(String, nullable=True)  
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=text("CURRENT_TIMESTAMP")
     )

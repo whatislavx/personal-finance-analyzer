@@ -1,22 +1,41 @@
 import { useParams, Link } from 'react-router';
 import { useApp } from '../context/AppContext';
 import { api, formatApiError } from '../lib/api';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, CartesianGrid, XAxis, YAxis, LineChart, Line, Legend } from 'recharts';
-import { LineChartAnalysis, MonthlyPoint } from '../components/LineChartAnalysis';
-import { ArrowLeft, TrendingDown, DollarSign, Calendar, Download, AlertTriangle, Sparkles, Brain, BadgeAlert, Target } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChartAnalysis, TrendPoint } from '../components/LineChartAnalysis';
+import { ArrowLeft, TrendingDown, DollarSign, Calendar, Download, AlertTriangle, Sparkles, Brain, BadgeAlert, Target, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 
 const COLORS = ['#6366f1', '#ec4899', '#8b5cf6', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6'];
 
 export function Results() {
   const { analysisId } = useParams();
-  const { getResultByAnalysisId, analyses } = useApp();
+  const { getResultByAnalysisId, analyses, transactions, deleteAnalysis } = useApp();
+  const navigate = useNavigate();
 
   const result = getResultByAnalysisId(analysisId!);
   const analysis = analyses.find((item) => item.id === analysisId);
 
   const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [chartGranularity, setChartGranularity] = useState<'day' | 'month' | 'year'>('month');
+  const handleDeleteAnalysis = async () => {
+    if (!analysisId || isDeleting) return;
+    const accepted = window.confirm('Delete this analysis and its report? This action cannot be undone.');
+    if (!accepted) return;
+    try {
+      setIsDeleting(true);
+      await deleteAnalysis(analysisId);
+      navigate('/app/analyses');
+    } catch (e: any) {
+      alert(formatApiError(e) || 'Failed to delete analysis.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   const tipsByCategory: Record<string, string> = {
     groceries: 'Set a weekly cap and buy staples in bulk to reduce small frequent purchases.',
@@ -33,12 +52,6 @@ export function Results() {
     freelance: 'Irregular income works better with a baseline budget and a surplus buffer.',
     investment: 'Avoid treating investment gains as spendable cash; keep them in a separate bucket.',
   };
-
-  const overallRecommendations = [
-    'Keep fixed expenses separate from variable ones so the analysis can isolate true anomalies faster.',
-    'Watch categories with repeated spikes; that pattern matters more than one-off large transactions.',
-    'Move a fixed percentage of income into savings immediately after it lands to reduce decision fatigue.',
-  ];
 
   const anomalyPatterns = result?.anomalies?.length
     ? [
@@ -92,45 +105,71 @@ export function Results() {
     );
   }
 
-  const monthlyData: MonthlyPoint[] = Array.isArray((result as any).monthly)
-    ? (result as any).monthly.map((m: any) => ({
-      key: m.key,
-      label: m.label,
-      income: m.income,
-      expense: m.expense,
-      net: m.income - m.expense,
-    }))
-    : [];
+  const groupedFromTransactions = Object.values(
+    transactions.reduce<Record<string, { key: string; label: string; income: number; expense: number }>>((acc, tx) => {
+      const txDate = new Date(tx.date);
+      if (Number.isNaN(txDate.getTime())) return acc;
+      const key = chartGranularity === 'day'
+        ? `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}-${String(txDate.getDate()).padStart(2, '0')}`
+        : chartGranularity === 'year'
+          ? `${txDate.getFullYear()}`
+          : `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+      if (!acc[key]) {
+        const label = chartGranularity === 'day'
+          ? txDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : chartGranularity === 'year'
+            ? txDate.toLocaleDateString('en-US', { year: 'numeric' })
+            : txDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        acc[key] = {
+          key,
+          label,
+          income: 0,
+          expense: 0,
+        };
+      }
+      if (tx.type === 'Income') acc[key].income += Number(tx.amount ?? 0);
+      else acc[key].expense += Number(tx.amount ?? 0);
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => a.key.localeCompare(b.key))
+    .map((item) => ({ ...item, net: item.income - item.expense }));
+  const chartDataPoints: TrendPoint[] = groupedFromTransactions;
 
   const chartData = Object.entries(result.byCategory).map(([name, value]) => ({
     name,
     value,
   }));
   const sortedChartData = [...chartData].sort((a, b) => b.value - a.value);
-  const topCategoryData = sortedChartData.slice(0, 6);
 
   const netBalance = result.totalIncome - result.totalExpenses;
   const savingsRate = result.totalIncome > 0 ? (netBalance / result.totalIncome) * 100 : null;
   const largestCategoryPct = result.totalExpenses > 0 && sortedChartData[0]?.value != null
     ? (sortedChartData[0].value / result.totalExpenses) * 100
     : null;
-  const financialCompositionData = [
-    { metric: 'Income', value: result.totalIncome, fill: '#10b981' },
-    { metric: 'Expense', value: result.totalExpenses, fill: '#ef4444' },
-    { metric: 'Net', value: netBalance, fill: netBalance >= 0 ? '#6366f1' : '#f97316' },
+  const recommendationsFromAnalysis = (result as any)?.recommendations;
+  const recommendationLines = Array.isArray(recommendationsFromAnalysis) && recommendationsFromAnalysis.length > 0
+    ? recommendationsFromAnalysis.slice(0, 3)
+    : [
+      'Review fixed vs variable costs separately to spot persistent leakages.',
+      'Prioritize categories where both total amount and anomaly frequency are high.',
+      'Set a monthly savings transfer based on your current net balance trend.',
+    ];
+  const dominantCategory = sortedChartData[0]?.name ?? null;
+  const analysisFindings = [
+    netBalance >= 0
+      ? `Current period closes with a surplus of $${netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`
+      : `Current period closes with a deficit of $${Math.abs(netBalance).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`,
+    savingsRate === null
+      ? 'Savings rate is unavailable because income data is missing for this period.'
+      : `Estimated savings rate is ${savingsRate.toFixed(1)}%, which indicates ${savingsRate >= 20 ? 'healthy' : savingsRate >= 10 ? 'moderate' : 'low'} saving capacity.`,
+    dominantCategory && largestCategoryPct !== null
+      ? `${dominantCategory} is the dominant expense category at ${largestCategoryPct.toFixed(1)}% of total expenses.`
+      : 'No dominant category detected yet.',
+    result.anomalies.length > 0
+      ? `${result.anomalies.length} anomalies were flagged; focus first on the largest amounts to reduce risk quickly.`
+      : 'No anomalies were flagged in this run, indicating stable spending behavior for the analyzed data.',
   ];
-  const anomaliesByCategory = Object.entries(
-    (result.anomalies ?? []).reduce<Record<string, { count: number; amount: number }>>((acc, anomaly) => {
-      const key = anomaly.category || 'unknown';
-      if (!acc[key]) acc[key] = { count: 0, amount: 0 };
-      acc[key].count += 1;
-      acc[key].amount += Number(anomaly.amount ?? 0);
-      return acc;
-    }, {})
-  )
-    .map(([category, stats]) => ({ category, ...stats }))
-    .sort((a, b) => b.count - a.count || b.amount - a.amount)
-    .slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -147,14 +186,24 @@ export function Results() {
           <h1 className="text-3xl mb-2">Analysis Results</h1>
           <p className="text-slate-400">{analysis?.name || 'Financial Analysis'}</p>
         </div>
-        <button
-          onClick={handleExport}
-          disabled={isExporting}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all border border-slate-700 disabled:opacity-50"
-        >
-          <Download className="w-5 h-5" />
-          {isExporting ? 'Exporting...' : 'Export Report'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteAnalysis}
+            disabled={isDeleting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-red-900/40 hover:bg-red-800/60 text-red-200 rounded-lg transition-all border border-red-700/50 disabled:opacity-50"
+          >
+            <Trash2 className="w-5 h-5" />
+            {isDeleting ? 'Deleting...' : 'Delete Analysis'}
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all border border-slate-700 disabled:opacity-50"
+          >
+            <Download className="w-5 h-5" />
+            {isExporting ? 'Exporting...' : 'Export Report'}
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -215,118 +264,34 @@ export function Results() {
         </motion.div>
       </div>
 
-      {/* Multi-metric Charts */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.34 }}
-          className="bg-slate-900 border border-slate-800 rounded-xl p-6"
-        >
-          <h2 className="text-xl mb-1">Financial Balance Metrics</h2>
-          <p className="text-sm text-slate-400 mb-5">Income, expense, and net balance in one view.</p>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={financialCompositionData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="metric" stroke="#94a3b8" tickLine={false} axisLine={false} />
-              <YAxis
-                stroke="#94a3b8"
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '0.5rem' }}
-                formatter={(value: number) => `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              />
-              <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                {financialCompositionData.map((entry) => (
-                  <Cell key={entry.metric} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.36 }}
-          className="bg-slate-900 border border-slate-800 rounded-xl p-6"
-        >
-          <h2 className="text-xl mb-1">Top Expense Categories</h2>
-          <p className="text-sm text-slate-400 mb-5">Largest drivers of spending by amount.</p>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={topCategoryData} layout="vertical" margin={{ left: 12, right: 16 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis type="number" stroke="#94a3b8" tickLine={false} axisLine={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={100}
-                stroke="#cbd5e1"
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '0.5rem' }}
-                formatter={(value: number) => `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
-              />
-              <Bar dataKey="value" fill="#6366f1" radius={[0, 8, 8, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </div>
-
-      {anomaliesByCategory.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.38 }}
-          className="bg-slate-900 border border-slate-800 rounded-xl p-6"
-        >
-          <h2 className="text-xl mb-1">Anomaly Metrics by Category</h2>
-          <p className="text-sm text-slate-400 mb-5">How often anomalies occur and their total amount.</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={anomaliesByCategory} margin={{ right: 16, left: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-              <XAxis dataKey="category" stroke="#94a3b8" tickLine={false} axisLine={false} />
-              <YAxis yAxisId="left" stroke="#fbbf24" tickLine={false} axisLine={false} />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#38bdf8"
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${Number(value).toLocaleString('en-US')}`}
-              />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '0.5rem' }}
-                formatter={(value: number, name: string) => [
-                  name === 'amount'
-                    ? `$${Number(value).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                    : Number(value).toLocaleString('en-US'),
-                  name === 'amount' ? 'Anomaly Amount' : 'Anomaly Count',
-                ]}
-              />
-              <Legend />
-              <Bar yAxisId="left" dataKey="count" name="Count" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-              <Line yAxisId="right" type="monotone" dataKey="amount" name="Amount" stroke="#38bdf8" strokeWidth={3} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
-      )}
-
       {/* Line Chart: Income/Expense/Net by Month */}
-      {monthlyData.length > 0 && (
+      {chartDataPoints.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="bg-slate-900 border border-slate-800 rounded-xl p-6"
+          className="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-8"
         >
-          <h2 className="text-xl mb-6">Monthly Performance</h2>
-          <LineChartAnalysis data={monthlyData} />
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl mb-1">Income vs Expenses Trend</h2>
+              <p className="text-sm text-slate-400">Compare income, expense, and net by selected interval.</p>
+            </div>
+            <div className="flex rounded-lg border border-slate-700 bg-slate-950/50 p-1">
+              {(['day', 'month', 'year'] as const).map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setChartGranularity(option)}
+                  className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+                    chartGranularity === option ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  {option === 'day' ? 'Daily' : option === 'month' ? 'Monthly' : 'Yearly'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <LineChartAnalysis data={chartDataPoints} />
         </motion.div>
       )}
 
@@ -488,16 +453,13 @@ export function Results() {
             <h2 className="text-xl text-slate-100">Spending Overview</h2>
           </div>
           <div className="space-y-4 text-sm leading-7 text-slate-300">
-            <p>
-              This section gives a quick overview of your recent spending behavior and highlights where to pay attention.
-            </p>
-            <p>
-              Use it as a simple health check: steady trends are usually good, while repeated spikes can be a sign to review your habits.
-            </p>
+            {analysisFindings.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
             <div className="rounded-xl border border-slate-700/70 bg-slate-950/70 p-4">
-              <div className="mb-3 text-sm font-medium text-slate-100">Quick recommendations</div>
+              <div className="mb-3 text-sm font-medium text-slate-100">Analysis-backed recommendations</div>
               <ul className="space-y-2 text-slate-300">
-                {overallRecommendations.map((tip) => (
+                {recommendationLines.map((tip) => (
                   <li key={tip} className="flex items-start gap-2">
                     <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-indigo-300" />
                     <span>{tip}</span>

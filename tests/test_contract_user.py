@@ -15,7 +15,6 @@ def test_contract_auth_token_shape(client: TestClient, unique_user_payload):
     assert login_resp.status_code == 200
     data = login_resp.json()
 
-    # Contract for auth flow response.
     assert set(data.keys()) == {"access_token", "token_type"}
     assert isinstance(data["access_token"], str)
     assert data["token_type"] == "bearer"

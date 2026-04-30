@@ -4,14 +4,13 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-# optional import - runtime dependency; static analysis may not have it
 try:
-    from jose import JWTError, jwt  # type: ignore
+    from jose import JWTError, jwt
 
     _HAS_JOSE = True
-except Exception:  # pragma: no cover - static analysis fallback
-    JWTError = Exception  # type: ignore
-    jwt = None  # type: ignore
+except Exception:
+    JWTError = Exception
+    jwt = None
     _HAS_JOSE = False
 
 from pydantic import BaseModel
@@ -21,7 +20,6 @@ from app.core.config import settings
 from app.db.deps import get_db
 from app.db.models.users import User
 
-# Settings for development; in production keep secret and in env
 SECRET_KEY = settings.JWT_SECRET_KEY
 ALGORITHM = settings.JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
@@ -44,7 +42,7 @@ async def get_current_user(
     if not _HAS_JOSE or jwt is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="JWT library not configured",
+            detail="JWT library not configured. Ensure the required library is installed and properly set up.",
         )
 
     try:
@@ -61,30 +59,19 @@ async def get_current_user(
     return user
 
 
-async def get_current_user_from_token(token: str, db: AsyncSession) -> User:
+async def get_user_from_token(token: str, db: AsyncSession = Depends(get_db)) -> User | None:
     """Like get_current_user, but accepts an explicit token string (handy for WebSockets)."""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    if not _HAS_JOSE or jwt is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="JWT library not configured",
-        )
-
+    if not token:
+        return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise credentials_exception
+            return None
     except JWTError:
-        raise credentials_exception
+        return None
 
     user = await db.get(User, user_id)
-    if not user:
-        raise credentials_exception
     return user
 
 

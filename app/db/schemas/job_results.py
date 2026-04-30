@@ -6,7 +6,8 @@ import datetime
 
 class JobResultBase(BaseModel):
     result_type: str
-    result_data: dict
+    result_data: Any | None = None
+    s3_key: str | None = None
 
 
 class JobResultCreate(JobResultBase):

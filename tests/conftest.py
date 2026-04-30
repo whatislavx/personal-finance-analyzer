@@ -10,7 +10,6 @@ import main
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Disable Rabbit background consumers in tests to keep runs deterministic.
 main.AIO_PIKA_AVAILABLE = False
 app = main.app
 

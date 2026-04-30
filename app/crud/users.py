@@ -2,6 +2,8 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.models.users import User
+from app.db.schemas.users import UserCreate
+from app.core.security import get_password_hash
 
 
 async def get_user(db: AsyncSession, user_id) -> Optional[User]:
@@ -14,14 +16,24 @@ async def get_user_by_username(db: AsyncSession, username: str) -> Optional[User
     return resp.scalars().first()
 
 
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    q = select(User).where(User.email == email)
+    resp = await db.execute(q)
+    return resp.scalars().first()
+
+
 async def list_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[User]:
     q = select(User).offset(skip).limit(limit)
     resp = await db.execute(q)
     return list(resp.scalars().all())
 
 
-async def create_user(db: AsyncSession, *, username: str, email: str) -> User:
-    user = User(username=username, email=email)
+async def create_user(db: AsyncSession, *, user_in: UserCreate) -> User:
+    user = User(
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=get_password_hash(user_in.password),
+    )
     db.add(user)
     await db.commit()
     await db.refresh(user)

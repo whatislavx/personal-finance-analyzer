@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 
 class TransactionType(enum.Enum):
-    INCOME = "income"
-    EXPENSE = "expense"
+    INCOME = "INCOME"
+    EXPENSE = "EXPENSE"
 
 
 class FinancialData(Base):

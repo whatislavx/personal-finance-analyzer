@@ -19,10 +19,9 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    # Ensure the job belongs to the current user
     job = await db.get(Job, event_in.job_id)
     if not job or job.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="The specified job does not exist or you do not have access to it.")
     event = JobEvent(**event_in.model_dump())
     db.add(event)
     await db.commit()
@@ -37,7 +36,6 @@ async def list_events(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    # Return events belonging to jobs of the current user
     q = (
         select(JobEvent)
         .join(Job)
@@ -61,7 +59,7 @@ async def get_event(
         raise HTTPException(status_code=404, detail="Event not found")
     job = await db.get(Job, event.job_id)
     if not job or job.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="The specified job does not exist or you do not have access to it.")
     return event
 
 
@@ -77,7 +75,7 @@ async def update_event(
         raise HTTPException(status_code=404, detail="Event not found")
     job = await db.get(Job, event.job_id)
     if not job or job.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="The specified job does not exist or you do not have access to it.")
     update_data = event_in.model_dump(exclude_unset=True)
     for k, v in update_data.items():
         setattr(event, k, v)
@@ -98,7 +96,7 @@ async def delete_event(
         raise HTTPException(status_code=404, detail="Event not found")
     job = await db.get(Job, event.job_id)
     if not job or job.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Event not found")
+        raise HTTPException(status_code=404, detail="The specified job does not exist or you do not have access to it.")
     await db.delete(event)
     await db.commit()
     return None

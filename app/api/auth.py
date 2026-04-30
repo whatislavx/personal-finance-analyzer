@@ -19,10 +19,10 @@ async def login_for_access_token(
     q = select(User).where(User.username == form_data.username)
     resp = await db.execute(q)
     user = resp.scalars().first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not verify_password(form_data.password, str(user.hashed_password)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Invalid username or password",
         )
 
     access_token = create_access_token({"sub": str(user.id)})

@@ -1,0 +1,128 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: finflow_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-finflow}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - finflow_pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: finflow_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - app-network
+
+  minio:
+    image: minio/minio
+    container_name: finflow_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - finflow_miniodata:/data
+    networks:
+      - app-network
+
+  minio-create-bucket:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "until (mc alias set local http://minio:9000 minioadmin minioadmin); do echo 'waiting for minio...'; sleep 1; done; mc mb -p local/results; exit 0"
+    restart: "no"
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: finflow_api
+    depends_on:
+      - db
+      - rabbitmq
+      - minio
+      - minio-create-bucket
+    environment:
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-finflow}
+      DB_HOST: db
+      DB_PORT: "5432"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: results
+    command: >
+      sh -c "until PGPASSWORD=${DB_PASSWORD:-postgres} pg_isready -h db -p 5432 -U ${DB_USER:-postgres}; do echo 'waiting for db...'; sleep 1; done;
+      alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: finflow_worker
+    depends_on:
+      - db
+      - rabbitmq
+      - minio
+      - minio-create-bucket
+    environment:
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-finflow}
+      DB_HOST: db
+      DB_PORT: "5432"
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq/
+      S3_ENDPOINT: minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: results
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: finflow_frontend
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: ag_gotenberg
+    networks:
+      - app-network
+
+volumes:
+  finflow_pgdata:
+  finflow_miniodata:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,5 +1,6 @@
 import asyncio
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -7,7 +8,6 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from app.core.config import settings
 from app.db.base import Base
 import app.db.models  # noqa: F401
 
@@ -15,11 +15,13 @@ import app.db.models  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
+from app.core.config import settings
+
 # Override sqlalchemy.url from .env settings so alembic.ini can stay generic.
 # Alembic can work with an async driver when env.py uses async_engine_from_config.
 config.set_main_option(
     "sqlalchemy.url",
-    f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}",
+    settings.DATABASE_URL,
 )
 
 # Interpret the config file for Python logging.

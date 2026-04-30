@@ -4,12 +4,14 @@ import uuid
 import datetime
 from decimal import Decimal
 
+from app.db.models.financial_data import TransactionType
+
 
 class FinancialDataBase(BaseModel):
     date: Optional[datetime.datetime] = None
     category: str
     amount: Decimal
-    type: str
+    type: TransactionType
     description: Optional[str] = None
 
 
@@ -21,7 +23,7 @@ class FinancialDataUpdate(BaseModel):
     date: Optional[datetime.datetime] = None
     category: Optional[str] = None
     amount: Optional[Decimal] = None
-    type: Optional[str] = None
+    type: Optional[TransactionType] = None
     description: Optional[str] = None
 
 
