@@ -4,16 +4,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    image: ${REGISTRY_URL}/finflow-api:${IMAGE_TAG:-latest}
+    image: docker.io/${DOCKERHUB_USERNAME}/finflow-api:${IMAGE_TAG}
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    image: ${REGISTRY_URL}/finflow-worker:${IMAGE_TAG:-latest}
+    image: docker.io/${DOCKERHUB_USERNAME}/finflow-worker:${IMAGE_TAG}
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: ${REGISTRY_URL}/finflow-frontend:${IMAGE_TAG:-latest}
+    image: docker.io/${DOCKERHUB_USERNAME}/finflow-frontend:${IMAGE_TAG}

@@ -19,30 +19,66 @@ on:
                     - frontend
 
             tag:
-                description: Image tag
+                description: Custom image tag
                 required: false
                 type: string
 
-env:
-    IMAGE_TAG: ${{ github.event.inputs.tag || github.sha }}
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: false
 
 jobs:
-    build:
+    prepare:
         runs-on: ubuntu-latest
 
-        env:
-            IMAGE_TAG: ${{ github.event.inputs.tag || github.sha }}
-            REGISTRY_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+        outputs:
+            image_tag: ${{ steps.vars.outputs.image_tag }}
+            services: ${{ steps.vars.outputs.services }}
+            selected_service: ${{ steps.vars.outputs.selected_service }}
+
+        steps:
+            - name: Prepare variables
+              id: vars
+              shell: bash
+              run: |
+                  set -e
+
+                  TAG="${{ github.event.inputs.tag }}"
+
+                  if [ -z "$TAG" ]; then
+                    TAG="${GITHUB_SHA::7}"
+                  fi
+
+                  echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+
+                  if [ "${{ github.event_name }}" = "push" ]; then
+                    SERVICES='["api","worker","frontend"]'
+                    SELECTED_SERVICE="all"
+                  else
+                    if [ "${{ github.event.inputs.service }}" = "all" ]; then
+                      SERVICES='["api","worker","frontend"]'
+                      SELECTED_SERVICE="all"
+                    else
+                      SERVICES='["${{ github.event.inputs.service }}"]'
+                      SELECTED_SERVICE="${{ github.event.inputs.service }}"
+                    fi
+                  fi
+
+                  echo "services=$SERVICES" >> $GITHUB_OUTPUT
+                  echo "selected_service=$SELECTED_SERVICE" >> $GITHUB_OUTPUT
+
+    build:
+        needs: prepare
+        runs-on: ubuntu-latest
 
         strategy:
+            fail-fast: false
             matrix:
-                service: ${{ fromJson(
-                    github.event_name == 'push'
-                    && '["api","worker","frontend"]'
-                    || github.event.inputs.service == 'all'
-                    && '["api","worker","frontend"]'
-                    || format('["{0}"]', github.event.inputs.service)
-                    ) }}
+                service: ${{ fromJson(needs.prepare.outputs.services) }}
+
+        env:
+            IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+            DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
         steps:
             - name: Checkout repository
@@ -67,7 +103,10 @@ jobs:
                     push ${{ matrix.service }}
 
     trigger-cd:
-        needs: build
+        needs:
+            - prepare
+            - build
+
         runs-on: ubuntu-latest
 
         steps:
@@ -79,6 +118,6 @@ jobs:
                   event-type: app_release
                   client-payload: >-
                       {
-                        "service": "${{ github.event.inputs.service || 'all' }}",
-                        "tag": "${{ env.IMAGE_TAG }}"
+                        "service": "${{ needs.prepare.outputs.selected_service }}",
+                        "tag": "${{ needs.prepare.outputs.image_tag }}"
                       }
