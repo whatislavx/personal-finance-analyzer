@@ -75,7 +75,7 @@ jobs:
               uses: peter-evans/repository-dispatch@v3
               with:
                   token: ${{ secrets.PAT_TOKEN }}
-                  repository: whatislavx/finance-infra
+                  repository: whatislavx/personal-finance-analyzer-infra
                   event-type: app_release
                   client-payload: >-
                       {
