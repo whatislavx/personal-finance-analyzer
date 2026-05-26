@@ -1,18 +1,8 @@
-"""Простой скрипт для отправки файла(ов) в Gotenberg и сохранения результата.
-
-Usage:
-    python docs\gotenberg_convert.py --endpoint /convert/html -o out.pdf docs\file1.html docs\file2.png
-
-Пример:
-    python docs\gotenberg_convert.py --endpoint /convert/html -o docs\financial_data_design.pdf docs\financial_data_design.html docs\financial_data_design.png
-
-"""
 import sys
 import os
 import argparse
 import mimetypes
 import requests
-
 
 def main():
     parser = argparse.ArgumentParser()

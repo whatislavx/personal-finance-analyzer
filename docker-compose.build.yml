@@ -1,0 +1,19 @@
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: ${REGISTRY_URL}/finflow-api:${IMAGE_TAG:-latest}
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: ${REGISTRY_URL}/finflow-worker:${IMAGE_TAG:-latest}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: ${REGISTRY_URL}/finflow-frontend:${IMAGE_TAG:-latest}

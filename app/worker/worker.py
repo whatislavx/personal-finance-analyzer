@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import math
 
-from app.core.s3 import s3_client
+from app.core.s3 import s3_client, build_result_s3_key
 from app.core.rabbit import publish_ui_event
 from sqlalchemy import select
 
@@ -397,7 +397,7 @@ async def handle_job_message(payload: Dict[str, Any]) -> None:
 
             logger.info("Analysis for job %s: %s", job.id, analysis)
 
-            s3_key = f"results/{job.id}.json"
+            s3_key = build_result_s3_key(str(job.id))
             analysis_json = json.dumps(analysis)
 
 

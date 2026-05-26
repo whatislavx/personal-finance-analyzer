@@ -38,7 +38,6 @@ export function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 flex">
-      {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-center p-12 text-white">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -109,7 +108,6 @@ export function Landing() {
         </motion.div>
       </div>
 
-      {/* Right side - Auth Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -152,11 +150,11 @@ export function Landing() {
                   <label className="block text-sm text-slate-300 mb-2">
                     Username
                   </label>
-                  <div className="mb-2 text-xs text-slate-500">Example: johndoe</div>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    placeholder="johndoe"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
                     required={!isLogin}
                   />
@@ -167,11 +165,11 @@ export function Landing() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Email
                 </label>
-                <div className="mb-2 text-xs text-slate-500">Example: you@company.com</div>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
                   required
                 />
@@ -181,11 +179,11 @@ export function Landing() {
                 <label className="block text-sm text-slate-300 mb-2">
                   Password
                 </label>
-                <div className="mb-2 text-xs text-slate-500">Example: at least 8 characters</div>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
                   required
                 />
