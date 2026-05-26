@@ -30,6 +30,10 @@ jobs:
     build:
         runs-on: ubuntu-latest
 
+        env:
+            IMAGE_TAG: ${{ github.event.inputs.tag || github.sha }}
+            REGISTRY_URL: docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+
         strategy:
             matrix:
                 service: ${{ fromJson(
